@@ -325,7 +325,23 @@ func findTwin(deathbat Deathbat) (twin Deathbat, err error) {
 			twin = check
 			score = checkScore
 		}
+
+		//if equal, pick closer
+		if checkScore == score {
+			if diff(deathbat.Id, check.Id) < diff(deathbat.Id, twin.Id) {
+				twin = check
+			}
+		}
 	}
 
 	return twin, nil
+}
+
+//diff gets the absolute difference between two integers
+func diff(x int, y int) (diff int) {
+	diff = x - y
+	if diff < 0 {
+		return -diff
+	}
+	return diff
 }
