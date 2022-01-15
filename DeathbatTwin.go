@@ -14,6 +14,7 @@ import (
 var (
 	ErrInvalidTokenId   = errors.New("invalid token id, must be between 1 and 10000 inclusive")
 	ErrDeathbatNotFound = errors.New("Deathbat not found")
+	ErrUnknownTraitType = errors.New("unknown trait type")
 )
 
 //apis
@@ -21,6 +22,20 @@ const (
 	ownerAPI    = "https://api.opensea.io/api/v1/asset/0x1D3aDa5856B14D9dF178EA5Cab137d436dC55F1D/"
 	openSeaLink = "https://opensea.io/assets/0x1d3ada5856b14d9df178ea5cab137d436dc55f1d/"
 )
+
+//Traits represents the different traits (attributes) a Deathbat may have
+type Traits struct {
+	Background string `json:"Background"`
+	Eyes       string `json:"Eyes"`
+	FacialHair string `json:"Facial Hair"`
+	Head       string `json:"Head"`
+	Mask       string `json:"Mask"`
+	Mouth      string `json:"Mouth"`
+	Nose       string `json:"Nose"`
+	OneOfOne   string `json:"One of One"`
+	Perk       string `json:"Perk"`
+	Skin       string `json:"Skin"`
+}
 
 //Deathbat represents the properties of a Deathbat
 type Deathbat struct {
@@ -33,7 +48,8 @@ type Deathbat struct {
 		TraitType string `json:"trait_type"`
 		Value     string `json:"value"`
 	} `json:"attributes"`
-	Owner     string `json:"owner:"`
+	Traits    Traits `json:"traits"`
+	Owner     string `json:"owner"`
 	Hyperlink string `json:"hyperlink"`
 }
 
@@ -81,7 +97,6 @@ func main() {
 	fmt.Printf("Source Deathbat: ")
 	sourceDeathbat.print()
 
-	//TODO: implement findTwin
 	twinDeathbat, err := findTwin(sourceDeathbat)
 	if err != nil {
 		fmt.Printf("%s", err)
@@ -112,8 +127,11 @@ func loadDeathbats(filename string) (err error) {
 		return fmt.Errorf("loadDeathbats: %w", err)
 	}
 
-	for i, deathbat := range Deathbats {
-		Deathbats[i].Hyperlink = openSeaLink + strconv.Itoa(deathbat.Id)
+	for i := range Deathbats {
+		Deathbats[i].loadHyperlink()
+		if err := Deathbats[i].loadTraits(); err != nil {
+			return fmt.Errorf("loadDeathbats: %w", err)
+		}
 	}
 
 	err = file.Close()
@@ -197,7 +215,117 @@ func (deathbat *Deathbat) loadOwner() (err error) {
 	return nil
 }
 
+//loadHyperlink generates and adds the openSea hyperlink to a Deathbat
+func (deathbat *Deathbat) loadHyperlink() {
+	deathbat.Hyperlink = openSeaLink + strconv.Itoa(deathbat.Id)
+}
+
+//loadTraits populates a Deathbat's trait field from its attributes
+func (deathbat *Deathbat) loadTraits() (err error) {
+	for _, attribute := range deathbat.Attributes {
+		switch attribute.TraitType {
+		case "Background":
+			deathbat.Traits.Background = attribute.Value
+		case "Brooks Wackerman", "Johnny Christ", "M. Shadows", "Synyster Gates", "Zacky Vengeance":
+			deathbat.Traits.OneOfOne = attribute.Value
+		case "Eyes":
+			deathbat.Traits.Eyes = attribute.Value
+		case "Facial Hair":
+			deathbat.Traits.FacialHair = attribute.Value
+		case "Head":
+			deathbat.Traits.Head = attribute.Value
+		case "Mask":
+			deathbat.Traits.Mask = attribute.Value
+		case "Mouth":
+			deathbat.Traits.Mouth = attribute.Value
+		case "Nose":
+			deathbat.Traits.Nose = attribute.Value
+		case "Perk":
+			deathbat.Traits.Perk = attribute.Value
+		case "Skin":
+			deathbat.Traits.Skin = attribute.Value
+		default:
+			return fmt.Errorf("loadTraits: %w %s", ErrUnknownTraitType, attribute.TraitType)
+		}
+	}
+	return nil
+}
+
 //findTwin finds and returns another Deathbat most alike the provided Deathbat
 func findTwin(deathbat Deathbat) (twin Deathbat, err error) {
-	return deathbat, nil
+	twin = deathbat
+
+	//weights to be tuned
+	weight := map[string]int{
+		"Mask":        6,
+		"Facial Hair": 5,
+		"Eyes":        4,
+		"Mouth":       4,
+		"Nose":        4,
+		"Head":        3,
+		"Skin":        2,
+		"Background":  1,
+	}
+
+	//1/1 (Brooks Wackerman, Johnny Christ, M. Shadows, Synyser Gates, Zacky Vengeance)
+	if deathbat.Traits.OneOfOne != "" {
+		return twin, fmt.Errorf("you got a 1/1, there is no twin")
+	}
+
+	score := 0
+	for _, check := range Deathbats {
+		if deathbat.Id == check.Id {
+			continue
+		}
+
+		checkScore := 0
+
+		//Mask
+		if deathbat.Traits.Mask != "" && deathbat.Traits.Mask == check.Traits.Mask {
+			checkScore += weight["Mask"]
+		}
+
+		//Facial Hair
+		if deathbat.Traits.FacialHair != "" && deathbat.Traits.FacialHair == check.Traits.FacialHair {
+			checkScore += weight["Facial Hair"]
+		}
+
+		//Eyes
+		if deathbat.Traits.Eyes != "" && deathbat.Traits.Eyes == check.Traits.Eyes {
+			checkScore += weight["Eyes"]
+		}
+
+		//Mouth
+		if deathbat.Traits.Mouth != "" && deathbat.Traits.Mouth == check.Traits.Mouth {
+			checkScore += weight["Mouth"]
+		}
+
+		//Nose
+		if deathbat.Traits.Nose != "" && deathbat.Traits.Nose == check.Traits.Nose {
+			checkScore += weight["Nose"]
+		}
+
+		//Head
+		if deathbat.Traits.Head != "" && deathbat.Traits.Head == check.Traits.Head {
+			checkScore += weight["Head"]
+		}
+
+		//Skin
+		if deathbat.Traits.Skin != "" && deathbat.Traits.Skin == check.Traits.Skin {
+			checkScore += weight["Skin"]
+		}
+
+		//Background
+		if deathbat.Traits.Background != "" && deathbat.Traits.Background == check.Traits.Background {
+			checkScore += weight["Background"]
+		}
+
+		//update if new twin
+		if checkScore > score {
+			twin = check
+			score = checkScore
+		}
+	}
+
+	return twin, nil
 }
