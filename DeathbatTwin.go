@@ -67,7 +67,7 @@ var Deathbats []Deathbat
 
 //main handles the high level function calls for now
 func main() {
-	filename := "deathbats1-3000.json"
+	filename := "deathbats1-9000.json"
 	if err := loadDeathbats(filename); err != nil {
 		fmt.Printf("err: main: %s", err)
 		return
