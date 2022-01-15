@@ -67,7 +67,7 @@ var Deathbats []Deathbat
 
 //main handles the high level function calls for now
 func main() {
-	filename := "deathbats1-1000.json"
+	filename := "deathbats1-3000.json"
 	if err := loadDeathbats(filename); err != nil {
 		fmt.Printf("err: main: %s", err)
 		return
@@ -255,7 +255,7 @@ func (deathbat *Deathbat) loadTraits() (err error) {
 func findTwin(deathbat Deathbat) (twin Deathbat, err error) {
 	twin = deathbat
 
-	//weights to be tuned
+	//weights to determine which matching traits matter more
 	weight := map[string]int{
 		"Mask":        6,
 		"Facial Hair": 5,
