@@ -12,30 +12,11 @@ import (
 
 //errors
 var (
-	ErrInvalidTokenId   = errors.New("invalid token id, must be between 1 and 10000 inclusive")
-	ErrDeathbatNotFound = errors.New("Deathbat not found")
-	ErrUnknownTraitType = errors.New("unknown trait type")
+	ErrInvalidTokenId      = errors.New("invalid token id, must be between 1 and 10000 inclusive")
+	ErrDeathbatNotFound    = errors.New("Deathbat not found")
+	ErrUnknownTraitType    = errors.New("unknown trait type")
+	ErrOpenSeaUnresponsive = errors.New("opensea.io unresponsive")
 )
-
-//apis
-const (
-	ownerAPI    = "https://api.opensea.io/api/v1/asset/0x1D3aDa5856B14D9dF178EA5Cab137d436dC55F1D/"
-	openSeaLink = "https://opensea.io/assets/0x1d3ada5856b14d9df178ea5cab137d436dc55f1d/"
-)
-
-//Traits represents the different traits (attributes) a Deathbat may have
-type Traits struct {
-	Background string `json:"Background"`
-	Eyes       string `json:"Eyes"`
-	FacialHair string `json:"Facial Hair"`
-	Head       string `json:"Head"`
-	Mask       string `json:"Mask"`
-	Mouth      string `json:"Mouth"`
-	Nose       string `json:"Nose"`
-	OneOfOne   string `json:"One of One"`
-	Perk       string `json:"Perk"`
-	Skin       string `json:"Skin"`
-}
 
 //Deathbat represents the properties of a Deathbat
 type Deathbat struct {
@@ -48,18 +29,24 @@ type Deathbat struct {
 		TraitType string `json:"trait_type"`
 		Value     string `json:"value"`
 	} `json:"attributes"`
-	Traits    Traits `json:"traits"`
-	Owner     string `json:"owner"`
+	Traits struct {
+		Background      string `json:"background,omitempty"`
+		BrooksWackerman string `json:"brooks_wackerman,omitempty"`
+		Eyes            string `json:"eyes,omitempty"`
+		FacialHair      string `json:"facial_hair,omitempty"`
+		Head            string `json:"head,omitempty"`
+		JohnnyChrist    string `json:"johnny_christ,omitempty"`
+		Mask            string `json:"mask,omitempty"`
+		Mouth           string `json:"mouth,omitempty"`
+		Shadows         string `json:"shadows,omitempty"`
+		Nose            string `json:"nose,omitempty"`
+		Perk            string `json:"perk,omitempty"`
+		Skin            string `json:"skin,omitempty"`
+		SynysterGates   string `json:"synyster_gates,omitempty"`
+		ZackyVengeance  string `json:"zacky_vengeance,omitempty"`
+	} `json:"traits"`
 	Hyperlink string `json:"hyperlink"`
-}
-
-//OpenSeaDeathbat represents a partial structure of a Deathbat as listed on OpenSea.io
-type OpenSeaDeathbat struct {
-	Owner struct {
-		User struct {
-			Username string `json:"username"`
-		} `json:"user"`
-	} `json:"owner"`
+	Owner     string `json:"owner"`
 }
 
 //Deathbats is the global memory storage for all loaded deathbats
@@ -67,31 +54,31 @@ var Deathbats []Deathbat
 
 //main handles the high level function calls for now
 func main() {
-	filename := "deathbats1-9000.json"
+	filename := "deathbats.json"
 	if err := loadDeathbats(filename); err != nil {
-		fmt.Printf("err: main: %s", err)
+		fmt.Printf("err: main: %s\n", err)
 		return
 	}
 
 	tokenId, err := getSourceDeathbat()
 	if err != nil {
-		fmt.Printf("err: main: %s", err)
+		fmt.Printf("err: main: %s\n", err)
 		return
 	}
 
 	if err = checkTokenId(tokenId); err != nil {
-		fmt.Printf("err: main: %s", err)
+		fmt.Printf("err: main: %s\n", err)
 		return
 	}
 
 	sourceDeathbat, err := getDeathbat(tokenId)
 	if err != nil {
-		fmt.Printf("err: main: %s", err)
+		fmt.Printf("err: main: %s\n", err)
 		return
 	}
 
 	if err = sourceDeathbat.loadOwner(); err != nil {
-		fmt.Printf("err: main: %s", err)
+		fmt.Printf("err: main: %s\n", err)
 	}
 
 	fmt.Printf("Source Deathbat: ")
@@ -99,12 +86,12 @@ func main() {
 
 	twinDeathbat, err := findTwin(sourceDeathbat)
 	if err != nil {
-		fmt.Printf("%s", err)
+		fmt.Printf("%s\n", err)
 		return
 	}
 
 	if err = twinDeathbat.loadOwner(); err != nil {
-		fmt.Printf("err: main: %s", err)
+		fmt.Printf("err: main: %s\n", err)
 	}
 
 	fmt.Printf("\nTwin Deathbat: ")
@@ -115,27 +102,23 @@ func main() {
 func loadDeathbats(filename string) (err error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return fmt.Errorf("loadDeathbats: %w", err)
+		return fmt.Errorf("loadDeathbats: Open: %w", err)
 	}
 
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		return fmt.Errorf("loadDeathbats: %w", err)
+		return fmt.Errorf("loadDeathbats: ReadAll: %w", err)
 	}
 
 	if err = json.Unmarshal(data, &Deathbats); err != nil {
-		return fmt.Errorf("loadDeathbats: %w", err)
-	}
-
-	for i := range Deathbats {
-		Deathbats[i].loadHyperlink()
-		if err := Deathbats[i].loadTraits(); err != nil {
-			return fmt.Errorf("loadDeathbats: %w", err)
-		}
+		return fmt.Errorf("loadDeathbats: Unmarshal: %w", err)
 	}
 
 	err = file.Close()
-	return err
+	if err != nil {
+		return fmt.Errorf("loadDeathbats: %w", err)
+	}
+	return nil
 }
 
 //getSourceDeathbat prompts the user for a Deathbat tokenId to use as the source for comparison
@@ -143,12 +126,12 @@ func getSourceDeathbat() (tokenId int, err error) {
 	fmt.Printf("What number Deathbat do you want to find a twin for? ")
 	var input string
 	if _, err = fmt.Scanln(&input); err != nil {
-		return 0, fmt.Errorf("getSourceDeathbat: %w", err)
+		return 0, fmt.Errorf("getSourceDeathbat: Scanln: %w", err)
 	}
 
 	tokenId, err = strconv.Atoi(input)
 	if err != nil {
-		return 0, fmt.Errorf("getSourceDeathbat: %w", err)
+		return 0, fmt.Errorf("getSourceDeathbat: Atoi: %w", err)
 	}
 
 	return tokenId, nil
@@ -166,7 +149,12 @@ func checkTokenId(tokenId int) (err error) {
 
 //getDeathbat retrieves a Deathbat from memory
 func getDeathbat(tokenId int) (deathbat Deathbat, err error) {
-	//check memory
+	//quick check if ordered
+	if Deathbats[tokenId-1].Id == tokenId {
+		return Deathbats[tokenId-1], nil
+	}
+
+	//check all memory in case unordered
 	for _, deathbat := range Deathbats {
 		if deathbat.Id == tokenId {
 			return deathbat, nil
@@ -191,63 +179,30 @@ func (deathbat *Deathbat) print() {
 
 //loadOwner checks who the current owner of the Deathbat is on OpenSea.io
 func (deathbat *Deathbat) loadOwner() (err error) {
-	deathbat.Owner = "Unknown"
+	ownerAPI := "https://api.opensea.io/api/v1/asset/0x1D3aDa5856B14D9dF178EA5Cab137d436dC55F1D/"
 
 	URL := ownerAPI + strconv.Itoa(deathbat.Id)
 
 	response, err := http.Get(URL)
 	if err != nil {
-		return fmt.Errorf("loadOwner: %w", err)
+		return fmt.Errorf("loadOwner: Get: %w", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		return ErrOpenSeaUnresponsive
 	}
 
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return fmt.Errorf("loadOwner: %w", err)
+		return fmt.Errorf("loadOwner: ReadAll: %w", err)
 	}
 
-	var jsonData OpenSeaDeathbat
+	var jsonData interface{}
 	if err = json.Unmarshal(data, &jsonData); err != nil {
-		return fmt.Errorf("loadOwner: %w", err)
+		return fmt.Errorf("loadOwner: Unmarshal: %w", err)
 	}
 
-	deathbat.Owner = jsonData.Owner.User.Username
+	//TODO: pull out owner data
 
-	return nil
-}
-
-//loadHyperlink generates and adds the openSea hyperlink to a Deathbat
-func (deathbat *Deathbat) loadHyperlink() {
-	deathbat.Hyperlink = openSeaLink + strconv.Itoa(deathbat.Id)
-}
-
-//loadTraits populates a Deathbat's trait field from its attributes
-func (deathbat *Deathbat) loadTraits() (err error) {
-	for _, attribute := range deathbat.Attributes {
-		switch attribute.TraitType {
-		case "Background":
-			deathbat.Traits.Background = attribute.Value
-		case "Brooks Wackerman", "Johnny Christ", "M. Shadows", "Synyster Gates", "Zacky Vengeance":
-			deathbat.Traits.OneOfOne = attribute.Value
-		case "Eyes":
-			deathbat.Traits.Eyes = attribute.Value
-		case "Facial Hair":
-			deathbat.Traits.FacialHair = attribute.Value
-		case "Head":
-			deathbat.Traits.Head = attribute.Value
-		case "Mask":
-			deathbat.Traits.Mask = attribute.Value
-		case "Mouth":
-			deathbat.Traits.Mouth = attribute.Value
-		case "Nose":
-			deathbat.Traits.Nose = attribute.Value
-		case "Perk":
-			deathbat.Traits.Perk = attribute.Value
-		case "Skin":
-			deathbat.Traits.Skin = attribute.Value
-		default:
-			return fmt.Errorf("loadTraits: %w %s", ErrUnknownTraitType, attribute.TraitType)
-		}
-	}
 	return nil
 }
 
@@ -268,12 +223,13 @@ func findTwin(deathbat Deathbat) (twin Deathbat, err error) {
 	}
 
 	//1/1 (Brooks Wackerman, Johnny Christ, M. Shadows, Synyser Gates, Zacky Vengeance)
-	if deathbat.Traits.OneOfOne != "" {
+	if deathbat.Traits.BrooksWackerman != "" || deathbat.Traits.JohnnyChrist != "" || deathbat.Traits.Shadows != "" || deathbat.Traits.SynysterGates != "" || deathbat.Traits.ZackyVengeance != "" {
 		return twin, fmt.Errorf("you got a 1/1, there is no twin")
 	}
 
 	score := 0
 	for _, check := range Deathbats {
+		//can't be the same deathbat
 		if deathbat.Id == check.Id {
 			continue
 		}
