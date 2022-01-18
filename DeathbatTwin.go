@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 )
 
 //errors
@@ -52,50 +55,110 @@ type Deathbat struct {
 //Deathbats is the global memory storage for all loaded deathbats
 var Deathbats []Deathbat
 
+//tmpl represents the frontend html template
+var tmpl *template.Template
+
 //main handles the high level function calls for now
 func main() {
+	//load deathbat data
 	filename := "deathbats.json"
 	if err := loadDeathbats(filename); err != nil {
-		fmt.Printf("err: main: %s\n", err)
+		log.Printf("err: main: %s", err)
 		return
 	}
 
-	tokenId, err := getSourceDeathbat()
+	//link backend and frontend
+	wg := new(sync.WaitGroup)
+	wg.Add(2)
+
+	//backend
+	http.HandleFunc("/twin", twin)
+	go func() {
+		log.Fatal(http.ListenAndServe(":6660", nil))
+		wg.Done()
+	}()
+
+	//frontend
+	mux := http.NewServeMux()
+	tmpl = template.Must(template.ParseFiles("templates/index.gohtml"))
+
+	fs := http.FileServer(http.Dir("./static"))
+	mux.Handle("/static/", http.StripPrefix("/static/", fs))
+	mux.HandleFunc("/", home)
+
+	go func() {
+		log.Fatal(http.ListenAndServe(":6661", mux))
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+//home is the frontend function handler
+func home(w http.ResponseWriter, r *http.Request) {
+	_ = tmpl.Execute(w, r)
+}
+
+//twin in the backend function handler
+func twin(w http.ResponseWriter, r *http.Request) {
+	log.Printf("%s %s", r.Method, r.RequestURI)
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	tokenIdString := r.FormValue("token_id")
+	tokenId, err := strconv.Atoi(tokenIdString)
 	if err != nil {
-		fmt.Printf("err: main: %s\n", err)
+		log.Printf("twin: %s, %s", tokenIdString, ErrInvalidTokenId)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	if err = checkTokenId(tokenId); err != nil {
-		fmt.Printf("err: main: %s\n", err)
+	if tokenId < 1 || tokenId > 10000 {
+		log.Printf("twin: %d, %s", tokenId, ErrInvalidTokenId)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	sourceDeathbat, err := getDeathbat(tokenId)
 	if err != nil {
-		fmt.Printf("err: main: %s\n", err)
+		log.Printf("twin: %d, %s", tokenId, err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
 	if err = sourceDeathbat.loadOwner(); err != nil {
-		fmt.Printf("err: main: %s\n", err)
+		log.Printf("twin: %d, %s", tokenId, err)
 	}
 
-	fmt.Printf("Source Deathbat: ")
-	sourceDeathbat.print()
-
-	twinDeathbat, err := findTwin(sourceDeathbat)
+	twinDeathbat, err := sourceDeathbat.findTwin()
 	if err != nil {
-		fmt.Printf("%s\n", err)
+		log.Printf("twin: %d, %s", tokenId, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if err = twinDeathbat.loadOwner(); err != nil {
+		log.Printf("twin: %d, %s", tokenId, err)
+	}
+
+	data := struct {
+		Source Deathbat
+		Twin   Deathbat
+	}{
+		Source: sourceDeathbat,
+		Twin:   twinDeathbat,
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("twin: %d, %s", tokenId, err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	if err = twinDeathbat.loadOwner(); err != nil {
-		fmt.Printf("err: main: %s\n", err)
+	w.Header().Set("Content-Type", "application/json")
+	if _, err = w.Write(jsonData); err != nil {
+		log.Printf("twin: %d, %s", tokenId, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-
-	fmt.Printf("\nTwin Deathbat: ")
-	twinDeathbat.print()
 }
 
 //loadDeathbats reads the Deathbats json file and loads it to memory
@@ -116,34 +179,8 @@ func loadDeathbats(filename string) (err error) {
 
 	err = file.Close()
 	if err != nil {
-		return fmt.Errorf("loadDeathbats: %w", err)
+		return fmt.Errorf("loadDeathbats: Close: %w", err)
 	}
-	return nil
-}
-
-//getSourceDeathbat prompts the user for a Deathbat tokenId to use as the source for comparison
-func getSourceDeathbat() (tokenId int, err error) {
-	fmt.Printf("What number Deathbat do you want to find a twin for? ")
-	var input string
-	if _, err = fmt.Scanln(&input); err != nil {
-		return 0, fmt.Errorf("getSourceDeathbat: Scanln: %w", err)
-	}
-
-	tokenId, err = strconv.Atoi(input)
-	if err != nil {
-		return 0, fmt.Errorf("getSourceDeathbat: Atoi: %w", err)
-	}
-
-	return tokenId, nil
-}
-
-//checkTokenId checks if a tokenId provided is within the valid range
-func checkTokenId(tokenId int) (err error) {
-	valid := tokenId >= 1 && tokenId <= 10000
-	if !valid {
-		return ErrInvalidTokenId
-	}
-
 	return nil
 }
 
@@ -155,7 +192,7 @@ func getDeathbat(tokenId int) (deathbat Deathbat, err error) {
 	}
 
 	//check all memory in case unordered
-	for _, deathbat := range Deathbats {
+	for _, deathbat = range Deathbats {
 		if deathbat.Id == tokenId {
 			return deathbat, nil
 		}
@@ -188,7 +225,7 @@ func (deathbat *Deathbat) loadOwner() (err error) {
 		return fmt.Errorf("loadOwner: Get: %w", err)
 	}
 	if response.StatusCode != http.StatusOK {
-		return ErrOpenSeaUnresponsive
+		return fmt.Errorf("loadOwner: Get: %w", ErrOpenSeaUnresponsive)
 	}
 
 	data, err := ioutil.ReadAll(response.Body)
@@ -207,8 +244,8 @@ func (deathbat *Deathbat) loadOwner() (err error) {
 }
 
 //findTwin finds and returns another Deathbat most alike the provided Deathbat
-func findTwin(deathbat Deathbat) (twin Deathbat, err error) {
-	twin = deathbat
+func (deathbat *Deathbat) findTwin() (twin Deathbat, err error) {
+	twin = *deathbat
 
 	//weights to determine which matching traits matter more
 	weight := map[string]int{
@@ -223,7 +260,8 @@ func findTwin(deathbat Deathbat) (twin Deathbat, err error) {
 	}
 
 	//1/1 (Brooks Wackerman, Johnny Christ, M. Shadows, Synyser Gates, Zacky Vengeance)
-	if deathbat.Traits.BrooksWackerman != "" || deathbat.Traits.JohnnyChrist != "" || deathbat.Traits.Shadows != "" || deathbat.Traits.SynysterGates != "" || deathbat.Traits.ZackyVengeance != "" {
+	if deathbat.Traits.BrooksWackerman != "" || deathbat.Traits.JohnnyChrist != "" || deathbat.Traits.Shadows != "" ||
+		deathbat.Traits.SynysterGates != "" || deathbat.Traits.ZackyVengeance != "" {
 		return twin, fmt.Errorf("you got a 1/1, there is no twin")
 	}
 
