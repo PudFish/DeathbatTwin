@@ -67,7 +67,7 @@ func main() {
 		return
 	}
 
-	//link backend and frontend
+	//prep backend and frontend goroutines to be linked
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
 
@@ -262,7 +262,7 @@ func (deathbat *Deathbat) findTwin() (twin Deathbat, err error) {
 	//1/1 (Brooks Wackerman, Johnny Christ, M. Shadows, Synyser Gates, Zacky Vengeance)
 	if deathbat.Traits.BrooksWackerman != "" || deathbat.Traits.JohnnyChrist != "" || deathbat.Traits.Shadows != "" ||
 		deathbat.Traits.SynysterGates != "" || deathbat.Traits.ZackyVengeance != "" {
-		return twin, fmt.Errorf("you got a 1/1, there is no twin")
+		return twin, nil
 	}
 
 	score := 0
