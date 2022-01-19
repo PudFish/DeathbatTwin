@@ -1,5 +1,5 @@
 body {
-    background: linear-gradient( rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5) ), url('../resources/background.jpg');
+    background: linear-gradient( rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7) ), url('../resources/background.jpg');
     background-size: cover;
     font-family: 'Changa One', Impact, sans-serif;
     font-size: 35px;
@@ -15,6 +15,24 @@ img {
 a {
     color: #b993dc;
 }
+input {
+    font-family: 'Changa One', Impact, sans-serif;
+    font-size: 35px;
+    text-align: center;
+}
+
+/*input[type=text], select {*/
+/*    font-family: 'Changa One', Impact, sans-serif;*/
+/*    !*padding: 12px 20px;*!*/
+/*    !*margin: 8px 0;*!*/
+/*    !*display: inline-block;*!*/
+/*    !*border: 1px solid #ccc;*!*/
+/*    !*border-radius: 4px;*!*/
+/*    !*box-sizing: border-box;*!*/
+/*}*/
+/*input[type=submit] {*/
+/*    font-family: 'Changa One', Impact, sans-serif;*/
+/*}*/
 .row {
     display: flex;
 }
