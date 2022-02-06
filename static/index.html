@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="shortcut icon" href="#">
+        <title>Deathbat Twin</title>
+    </head>
+    <body>
+        <div>
+            <p id="message">Find your deathbat twin!</p>
+        </div>
+        <form id="find_twin">
+            <label for="token_id"></label>
+            <input type="text" id="token_id" name="token_id" size=5 maxlength=5 value="1">
+            <input type="button" onclick="getTwin()" value="Find Twin">
+        </form>
+        <div class="row">
+            <div class="column">
+                <p id="source_name">Deathbat #</p>
+                <img id="source_img" src="blank.jpg" alt="Source Deathbat">
+                <p id="source_owner">Unknown</p>
+                <p><a id="source_hyperlink" href="https://opensea.io/collection/deathbats-club" target="_blank">Opensea.io/.../</a></p>
+            </div>
+            <div class="column">
+                <p id="twin_name">Deathbat #</p>
+                <img id="twin_img" src="blank.jpg" alt="Twin Deathbat">
+                <p id="twin_owner">Unknown</p>
+                <p><a id="twin_hyperlink" href="https://opensea.io/collection/deathbats-club" target="_blank">Opensea.io/.../</a></p>
+            </div>
+        </div>
+    <script>
+        async function getTwin() {
+            let token_id = document.getElementById('token_id').value
+            const url = 'http://localhost:6660/twin?token_id='
+            fetch(url+token_id)
+                .then(response => {
+                    if (!response.ok) {
+                        document.getElementById('message').innerText = "Invalid Request"
+                        throw Error(response.statusText)
+                    }
+                    document.getElementById('message').innerText = "Twin Found!"
+                    return response.json()
+                })
+                .then(data => {
+                    if (data.Source.name === data.Twin.name) {
+                        document.getElementById('message').innerText = "1/1's don't have twins!"
+                    }
+
+                    document.getElementById('source_name').innerText = data.Source.name
+                    document.getElementById('source_img').src = data.Source.image
+                    document.getElementById('source_owner').innerText = data.Source.owner
+                    document.getElementById('source_hyperlink').innerText = 'Opensea.io/.../' + data.Source.id
+                    document.getElementById('source_hyperlink').href = data.Source.hyperlink
+
+                    document.getElementById('twin_name').innerText = data.Twin.name
+                    document.getElementById('twin_img').src = data.Twin.image
+                    document.getElementById('twin_owner').innerText = data.Twin.owner
+                    document.getElementById('twin_hyperlink').innerText = 'Opensea.io/.../' + data.Twin.id
+                    document.getElementById('twin_hyperlink').href = data.Twin.hyperlink
+                })
+                .catch(err => {
+                    console.error(err)
+                })
+        }
+    </script>
+    </body>
+<style>
+    body {
+        background: linear-gradient( rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7) ), url('background.jpg');
+        background-size: cover;
+        line-height: 20px;
+        font-family: 'Changa One', Impact, sans-serif;
+        font-size: 35px;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #fff;
+    }
+    img {
+        width: 600px;
+        height: 600px;
+    }
+    a {
+        color: #b993dc;
+    }
+    input {
+        font-family: 'Changa One', Impact, sans-serif;
+        font-size: 35px;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .row {
+        display: flex;
+    }
+    .column {
+        flex: 33.33%;
+    }
+</style>
+</html>
