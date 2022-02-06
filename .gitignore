@@ -14,4 +14,3 @@
 # Sensitive info
 /util.go
 *.json
-*.jpg

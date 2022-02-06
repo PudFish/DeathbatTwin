@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -55,9 +54,6 @@ type Deathbat struct {
 //Deathbats is the global memory storage for all loaded deathbats
 var Deathbats []Deathbat
 
-//tmpl represents the frontend html template
-var tmpl *template.Template
-
 //main handles the high level function calls for now
 func main() {
 	//load deathbat data
@@ -72,31 +68,20 @@ func main() {
 	wg.Add(2)
 
 	//backend
-	http.HandleFunc("/twin", twin)
 	go func() {
+		http.HandleFunc("/twin", twin)
 		log.Fatal(http.ListenAndServe(":6660", nil))
 		wg.Done()
 	}()
 
 	//frontend
-	mux := http.NewServeMux()
-	tmpl = template.Must(template.ParseFiles("templates/index.gohtml"))
-
-	fs := http.FileServer(http.Dir("./static"))
-	mux.Handle("/static/", http.StripPrefix("/static/", fs))
-	mux.HandleFunc("/", home)
-
 	go func() {
-		log.Fatal(http.ListenAndServe(":6661", mux))
+		http.Handle("/", http.FileServer(http.Dir("static")))
+		log.Fatal(http.ListenAndServe(":6661", nil))
 		wg.Done()
 	}()
 
 	wg.Wait()
-}
-
-//home is the frontend function handler
-func home(w http.ResponseWriter, r *http.Request) {
-	_ = tmpl.Execute(w, r)
 }
 
 //twin in the backend function handler
