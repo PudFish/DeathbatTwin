@@ -7,20 +7,20 @@
 - Middle Left
   - Source Deathbat image
   - Source Deathbat number
-  - Source Deathbat traits
+  - Source Deathbat traits (TODO)
   - Source Deathbat owner
   - Source Deathbat OpenSea.io hyperlink
 - Middle Right
   - Twin Deathbat image
   - Twin Deathbat number
-  - Twin Deathbat traits
+  - Twin Deathbat traits (TODO)
   - Twin Deathbat owner
   - Twin Deathbat OpenSea.io hyperlink
 
 ## APIs
 **Traits:** *GET* https://avengedsevenfold.io/deathbats/token/{token_id}
 
-**Image:** *GET* https://avengedsevenfold.io/deathbats/media/{token_id}.jpg
+**Image:** *GET* https://avengedsevenfold.io/deathbats/media/{token_id}.{file extension}
 
 **Owner:** *GET* https://api.opensea.io/api/v1/asset/0x1D3aDa5856B14D9dF178EA5Cab137d436dC55F1D/{token_id}/
 
