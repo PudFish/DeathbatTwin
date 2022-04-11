@@ -51,6 +51,15 @@ type Deathbat struct {
 	Owner     string `json:"owner"`
 }
 
+//OpenSea is the cut-down version of the openSea api return to get the current owner
+type OpenSea struct {
+	Owner struct {
+		User struct {
+			Username string `json:"username"`
+		} `json:"user"`
+	} `json:"owner"`
+}
+
 //Deathbats is the global memory storage for all loaded deathbats
 var Deathbats []Deathbat
 
@@ -210,7 +219,7 @@ func (deathbat *Deathbat) loadOwner() (err error) {
 		return fmt.Errorf("loadOwner: Get: %w", err)
 	}
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("loadOwner: Get: %w", ErrOpenSeaUnresponsive)
+		return fmt.Errorf("loadOwner: Get: %w %d", ErrOpenSeaUnresponsive, response.StatusCode)
 	}
 
 	data, err := ioutil.ReadAll(response.Body)
@@ -218,12 +227,12 @@ func (deathbat *Deathbat) loadOwner() (err error) {
 		return fmt.Errorf("loadOwner: ReadAll: %w", err)
 	}
 
-	var jsonData interface{}
-	if err = json.Unmarshal(data, &jsonData); err != nil {
+	var opensea OpenSea
+	if err = json.Unmarshal(data, &opensea); err != nil {
 		return fmt.Errorf("loadOwner: Unmarshal: %w", err)
 	}
 
-	//TODO: pull out owner data
+	deathbat.Owner = opensea.Owner.User.Username
 
 	return nil
 }
